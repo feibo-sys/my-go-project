@@ -44,22 +44,22 @@ type Order struct {
 	OrderTime  string    `json:"order_time"`
 	Status     string    `json:"status"`
 }
+type Comment struct {
+	PostID      string `json:"post_id"`
+	Content     string `json:"content"`
+	UserID      string `json:"user_id"`
+	Avatar      string `json:"avatar"`
+	UserName    string `json:"username"`
+	IsPraised   bool   `json:"is_praised"`
+	PraiseCount int    `json:"praise_count"`
+	ProductID   string `json:"product_id"`
+}
 
 var users []User
 var products []Product
 var orders []Order
+var comments []Comment
 
-/*
-func init() { //初始化测试数据
-
-		users = append(users, User{ID: "1", Username: "123456", Password: "123456"})
-		products = append(products, Product{ProductID: "1",
-			ProductName: "小蘑菇", Description: "科幻末世小说", Type: "书",
-			CommentNum: 100, Price: 49.8, IsAddedCar: false,
-			Cover: "https://img3.doubanio.com/view/subject/l/public/s33687612.jpg", PublishTime: "2020-7",
-			Link: "https://book.douban.com/subject/35139523/"})
-	}
-*/
 func register(c *gin.Context) { //用户注册
 	var newUser User
 	if err := c.ShouldBindJSON(&newUser); err != nil {
@@ -242,6 +242,59 @@ func getProductList(c *gin.Context) {
 		"Link": "https://book.douban.com/subject/35139523/"}})
 }
 
+//获取评论
+func getProductComment(c *gin.Context) {
+	productID := c.Param("product_id")
+	if productID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": 10001, "info": "参数错误", "data": nil})
+		return
+	}
+}
+
+//发表评论
+func postComment(c *gin.Context) {
+	var newComment Comment
+	if err := c.ShouldBindJSON(&newComment); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": 10001, "info": "参数错误", "data": nil})
+		return
+	}
+	comments = append(comments, newComment)
+	c.JSON(http.StatusOK, gin.H{"status": 10000, "info": "success", "data": nil})
+}
+
+//删除评论
+func deleteComment(c *gin.Context) {
+	commentID := c.Param("comment_id")
+	for i, comment := range comments {
+		if comment.PostID == commentID {
+			comments = append(comments[:i], comments[i+1:]...)
+			c.JSON(http.StatusOK, gin.H{"status": 10000, "info": "success", "data": nil})
+			return
+		}
+	}
+	c.JSON(http.StatusUnauthorized, gin.H{"status": 10007, "info": "评论未找到", "data": nil})
+}
+
+//更新评论
+func updateComment(c *gin.Context) {
+	commentID := c.Param("comment_id")
+	var updateComment struct {
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&updateComment); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": 10001, "info": "参数错误", "data": nil})
+		return
+	}
+	for i, comment := range comments {
+		if comment.PostID == commentID {
+			comments[i].Content = updateComment.Content
+			c.JSON(http.StatusOK, gin.H{"status": 10000, "info": "success", "data": nil})
+			return
+		}
+	}
+	c.JSON(http.StatusUnauthorized, gin.H{"status": 10007, "info": "评论未找到", "data": nil})
+}
+
 // 加入购物车
 func addToCar(c *gin.Context) {
 	token := c.GetHeader("Authorization")
@@ -319,6 +372,10 @@ func main() {
 	r.GET("/user/token/refresh", refreshToken)
 	r.PUT("/user/password", changePassword)
 	r.GET("user/info", getUserinfo)
+	r.GET("/comment", getProductComment)
+	r.POST("/comment/post", postComment)
+	r.DELETE("/comment/comment_id", deleteComment)
+	r.PUT("/comment/update", updateComment)
 	r.PUT("user/info", updateInfo)
 	r.POST("/product/list", getProductList)
 	r.POST("/product/addCar", addToCar)
